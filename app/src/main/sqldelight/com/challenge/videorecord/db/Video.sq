@@ -1,0 +1,39 @@
+CREATE TABLE Video (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    uri TEXT NOT NULL,
+    displayName TEXT NOT NULL,
+    createdAt INTEGER NOT NULL,
+    uploadStatus TEXT NOT NULL DEFAULT 'RECORDED',
+    uploadProgress INTEGER NOT NULL DEFAULT 0,
+    thumbnailUri TEXT,
+    width INTEGER,
+    height INTEGER
+);
+
+CREATE INDEX video_createdAt ON Video(createdAt);
+
+selectAll:
+SELECT *
+FROM Video
+ORDER BY createdAt DESC;
+
+selectById:
+SELECT *
+FROM Video
+WHERE id = ?;
+
+insert:
+INSERT INTO Video(uri, displayName, createdAt, thumbnailUri, width, height)
+VALUES (?, ?, ?, ?, ?, ?);
+
+updateUploadStatus:
+UPDATE Video SET uploadStatus = ? WHERE id = ?;
+
+updateUploadProgress:
+UPDATE Video SET uploadProgress = ? WHERE id = ?;
+
+resetUpload:
+UPDATE Video SET uploadStatus = 'RECORDED', uploadProgress = 0 WHERE id = ?;
+
+failInterruptedUploads:
+UPDATE Video SET uploadStatus = 'FAILED', uploadProgress = 0 WHERE uploadStatus = 'UPLOADING';
