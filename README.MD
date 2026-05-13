@@ -6,6 +6,11 @@ Compose UI + ViewModel per screen (`videolist`, `record`, `videodetail`), Koin D
 
 The DB is the single source of truth for upload state: `UploadManager` only writes to the DB, the UI just observes flows. List and detail stay in sync and restart recovery is a one-line SQL update.
 
+## Restrictions
+
+- minSdk 29 for thumbnail helper: context.contentResolver.loadThumbnail
+- CAMERA **and** RECORD_AUDIO permissions required. CAMERA could be sufficient. No mention of AUDIO in specs.
+
 ## Upload simulation
 
 `UploadManager` advances `uploadProgress` by 5% every 200 ms (4 s total). 50% chance to fail at a random point between 20–80%. Cancel returns the row to `RECORDED`; retry from `FAILED` starts again from 0.
@@ -18,14 +23,16 @@ The upload is in-process, no bytes survive a kill and nothing to resume. `FAILED
 
 ## Time spent
 
-≈ 10 hours.
+≈ 12 hours.
 
 ## For production
 
 - More comprehensive camera implementation 
 - Foreground service for uploads
+- Increase test coverage
 
 ## Extras
 
 Unit tests: `./gradlew :app:testDebugUnitTest`
+
 Spotless: `./gradlew spotlessApply`
