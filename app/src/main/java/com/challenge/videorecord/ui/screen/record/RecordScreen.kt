@@ -45,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -56,6 +57,7 @@ import com.challenge.videorecord.findActivity
 import com.challenge.videorecord.hasPermission
 import com.challenge.videorecord.openAppSettings
 import com.challenge.videorecord.ui.components.TopBar
+import com.challenge.videorecord.ui.theme.VideoUploadTheme
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
@@ -287,4 +289,22 @@ private fun startRecording(
                 }
             }
         }
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+fun RecordPreview(@PreviewParameter(RecordPreviewProvider::class) state: RecordState) {
+    VideoUploadTheme {
+        RecordContent(
+            state = state,
+            onRecordingStarted = {},
+            onStopRequested = {},
+            onRecordingFinalized = { _, _, _ -> },
+            onRecordingError = {},
+            onAbortRecording = {},
+            onSave = {},
+            onDiscard = {},
+            onNavigateBack = {},
+        )
+    }
 }

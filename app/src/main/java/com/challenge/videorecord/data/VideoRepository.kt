@@ -21,7 +21,7 @@ interface VideoRepository {
 
 class DefaultVideoRepository(private val db: VideoDatabase) : VideoRepository {
     init {
-        // mark UPLOADING videos as FAILED (app closed via upload)
+        // mark UPLOADING videos as FAILED (app closed during upload)
         db.videoQueries.failInterruptedUploads()
     }
 

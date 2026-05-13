@@ -11,7 +11,6 @@ import com.challenge.videorecord.ui.screen.videodetail.VideoDetailScreen
 import com.challenge.videorecord.ui.screen.videolist.VideoListScreen
 import kotlinx.serialization.Serializable
 
-@PreviewScreenSizes
 @Composable
 fun App() {
     val navController = rememberNavController()

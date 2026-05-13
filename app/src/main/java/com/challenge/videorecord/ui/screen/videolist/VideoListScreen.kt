@@ -19,18 +19,21 @@ import androidx.compose.material.icons.filled.VideoCall
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.challenge.videorecord.ui.VideoUi
 import com.challenge.videorecord.ui.components.ThumbnailImage
+import com.challenge.videorecord.ui.theme.VideoUploadTheme
 import com.challenge.videorecord.ui.tint
+import kotlinx.collections.immutable.ImmutableList
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
@@ -49,7 +52,7 @@ fun VideoListScreen(
 
 @Composable
 private fun VideoListContent(
-    videos: List<VideoUi>,
+    videos: ImmutableList<VideoUi>,
     onRecordVideo: () -> Unit,
     onVideoSelected: (Long) -> Unit,
 ) {
@@ -109,6 +112,18 @@ private fun VideoRow(
             imageVector = video.uploadStatus.icon,
             contentDescription = video.uploadStatus.label,
             tint = video.uploadStatus.tint,
+        )
+    }
+}
+
+@Preview
+@Composable
+fun VideoDetailPreview(@PreviewParameter(VideoListPreviewProvider::class) videos: ImmutableList<VideoUi>) {
+    VideoUploadTheme {
+        VideoListContent(
+            videos = videos,
+            onRecordVideo = {},
+            onVideoSelected = {},
         )
     }
 }

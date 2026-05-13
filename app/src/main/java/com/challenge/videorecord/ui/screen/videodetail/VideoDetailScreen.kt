@@ -43,6 +43,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.MediaItem
@@ -50,11 +53,13 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.compose.SURFACE_TYPE_TEXTURE_VIEW
+import androidx.media3.ui.compose.state.PlayPauseButtonState
 import androidx.media3.ui.compose.state.rememberPlayPauseButtonState
 import com.challenge.videorecord.ui.UploadStatus
 import com.challenge.videorecord.ui.VideoUi
 import com.challenge.videorecord.ui.components.ThumbnailImage
 import com.challenge.videorecord.ui.components.TopBar
+import com.challenge.videorecord.ui.theme.VideoUploadTheme
 import com.challenge.videorecord.ui.tint
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
@@ -198,24 +203,35 @@ private fun VideoPlayer(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    val player = remember { ExoPlayer.Builder(context).build() }
-    DisposableEffect(player) {
-        onDispose { player.release() }
-    }
-    LaunchedEffect(player, uri) {
-        player.setMediaItem(MediaItem.fromUri(uri))
-        player.prepare()
-    }
 
-    var started by remember(uri) { mutableStateOf(false) }
-    val playPauseState = rememberPlayPauseButtonState(player)
+    Box(
+        modifier
+            .heightIn(max = 300.dp)
+            .aspectRatio(aspectRatio)
+            .background(Color.Black),
+    ) {
+        var started by remember(uri) { mutableStateOf(false) }
 
-    Box(modifier.heightIn(max = 300.dp).aspectRatio(aspectRatio).background(Color.Black)) {
-        PlayerSurface(
-            player = player,
-            surfaceType = SURFACE_TYPE_TEXTURE_VIEW,
-            modifier = Modifier.fillMaxSize(),
-        )
+        val playPauseState: PlayPauseButtonState
+        if (!LocalInspectionMode.current) {
+            val player = remember { ExoPlayer.Builder(context).build() }
+            DisposableEffect(player) {
+                onDispose { player.release() }
+            }
+            LaunchedEffect(player, uri) {
+                player.setMediaItem(MediaItem.fromUri(uri))
+                player.prepare()
+            }
+
+            playPauseState = rememberPlayPauseButtonState(player)
+            PlayerSurface(
+                player = player,
+                surfaceType = SURFACE_TYPE_TEXTURE_VIEW,
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else {
+            playPauseState = rememberPlayPauseButtonState(null)
+        }
 
         if (!started && thumbnailUri != null) {
             ThumbnailImage(
@@ -242,5 +258,18 @@ private fun VideoPlayer(
                 modifier = Modifier.size(40.dp),
             )
         }
+    }
+}
+
+@Preview
+@Composable
+fun VideoDetailPreview(@PreviewParameter(VideoDetailPreviewProvider::class) video: VideoUi) {
+    VideoUploadTheme {
+        VideoDetailContent(
+            video = video,
+            onUpload = {},
+            onCancel = {},
+            onNavigateBack = {},
+        )
     }
 }

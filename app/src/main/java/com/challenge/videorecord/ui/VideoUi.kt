@@ -33,5 +33,5 @@ fun Video.toUi(): VideoUi {
     )
 }
 
-private val dateTimeFormat: DateFormat =
+val dateTimeFormat: DateFormat =
     DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)

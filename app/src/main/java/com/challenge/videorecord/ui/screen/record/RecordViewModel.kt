@@ -1,5 +1,6 @@
 package com.challenge.videorecord.ui.screen.record
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.challenge.videorecord.data.MediaStorage
@@ -10,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+@Immutable
 sealed interface RecordState {
     data object Idle : RecordState
     data object Recording : RecordState
