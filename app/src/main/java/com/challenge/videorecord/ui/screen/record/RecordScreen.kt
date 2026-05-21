@@ -200,6 +200,10 @@ private fun CameraRecorder(
         )
     }
 
+    val handleBack: () -> Unit = {
+        if (state is RecordState.Recording) onDiscardRecording() else onNavigateBack()
+    }
+
     // stop the camera and discard
     BackHandler(enabled = state is RecordState.Recording) {
         // could trigger user confirmation
@@ -211,7 +215,7 @@ private fun CameraRecorder(
 
         TopBar(
             modifier = Modifier.align(Alignment.TopCenter).systemBarsPadding(),
-            onNavigateBack = onNavigateBack,
+            onNavigateBack = handleBack,
         )
 
         CameraActions(
