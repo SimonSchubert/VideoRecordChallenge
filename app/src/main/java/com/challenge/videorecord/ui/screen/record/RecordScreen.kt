@@ -2,6 +2,9 @@ package com.challenge.videorecord.ui.screen.record
 
 import android.Manifest
 import android.content.Context
+import android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LOCKED
+import android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+import android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -65,6 +68,15 @@ fun RecordScreen(
         onSaveRecording = viewModel::saveRecording,
         onNavigateBack = onNavigateBack,
     )
+
+    // lock orientation to portrait for camera screen. make recordings survive orientation changes is fiddly and not best practice
+    val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        context.findActivity()?.requestedOrientation = SCREEN_ORIENTATION_PORTRAIT
+    }
+    DisposableEffect(Unit) {
+        onDispose { context.findActivity()?.requestedOrientation = SCREEN_ORIENTATION_UNSPECIFIED }
+    }
 }
 
 private val CAMERA_PERMISSIONS = arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
