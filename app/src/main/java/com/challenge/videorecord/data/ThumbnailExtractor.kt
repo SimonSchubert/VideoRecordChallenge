@@ -1,7 +1,10 @@
 package com.challenge.videorecord.data
 
+import android.content.ContentUris
 import android.content.Context
 import android.graphics.Bitmap.CompressFormat.JPEG
+import android.provider.MediaStore
+import android.util.Log
 import android.util.Size
 import androidx.core.net.toUri
 import kotlinx.coroutines.Dispatchers
@@ -16,6 +19,7 @@ interface ThumbnailExtractor {
 
 interface MediaStorage {
     suspend fun delete(uri: String)
+    suspend fun deleteOrphans(knownUris: Set<String>)
 }
 
 class AndroidThumbnailExtractor(private val context: Context) : ThumbnailExtractor {
@@ -32,5 +36,32 @@ class AndroidThumbnailExtractor(private val context: Context) : ThumbnailExtract
 class AndroidMediaStorage(private val context: Context) : MediaStorage {
     override suspend fun delete(uri: String) {
         withContext(Dispatchers.IO) { runCatching { context.contentResolver.delete(uri.toUri(), null, null) } }
+    }
+
+    /**
+     * This might be an overkill but orphaned video files were the single most problem that was bugging my mind
+     */
+    override suspend fun deleteOrphans(knownUris: Set<String>): Unit = withContext(Dispatchers.IO) {
+        val collection = MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+        val projection = arrayOf(MediaStore.Video.Media._ID)
+        val selection = "${MediaStore.Video.Media.OWNER_PACKAGE_NAME} = ?"
+        val args = arrayOf(context.packageName)
+        try {
+            var deleted = 0
+            context.contentResolver.query(collection, projection, selection, args, null)?.use { cursor ->
+                val idCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
+                while (cursor.moveToNext()) {
+                    val uri = ContentUris.withAppendedId(collection, cursor.getLong(idCol))
+                    if (uri.toString() !in knownUris) {
+                        context.contentResolver.delete(uri, null, null)
+                        deleted++
+                    }
+                }
+            }
+            Log.i("MediaStorage", "deleteOrphans: removed $deleted orphaned recording(s)")
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Log.i("MediaStorage", "exception deleting orphans")
+        }
     }
 }

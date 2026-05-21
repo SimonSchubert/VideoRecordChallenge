@@ -24,7 +24,10 @@ import com.challenge.videorecord.data.VideoMetadata
 import com.challenge.videorecord.data.VideoRepository
 import com.challenge.videorecord.db.Video
 import com.challenge.videorecord.ui.UploadStatus
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
@@ -66,6 +69,7 @@ class RecordViewModelInstrumentedTest {
     private lateinit var storage: AndroidMediaStorage
     private lateinit var repo: FakeRepo
     private lateinit var viewModel: RecordViewModel
+    private lateinit var appScope: CoroutineScope
     private var testStartSec: Long = 0L
 
     @Before
@@ -86,7 +90,8 @@ class RecordViewModelInstrumentedTest {
         }
         storage = AndroidMediaStorage(context)
         repo = FakeRepo()
-        viewModel = RecordViewModel(repo, FakeThumbnails(), storage)
+        appScope = CoroutineScope(SupervisorJob())
+        viewModel = RecordViewModel(repo, FakeThumbnails(), storage, appScope)
         testStartSec = System.currentTimeMillis() / 1000
     }
 
@@ -94,6 +99,7 @@ class RecordViewModelInstrumentedTest {
     fun tearDown() = runBlocking {
         withContext(Dispatchers.Main) { cameraProvider.unbindAll() }
         videosAddedSince(context, testStartSec).forEach { storage.delete(it.toString()) }
+        appScope.cancel()
     }
 
     @Test
@@ -157,6 +163,7 @@ class RecordViewModelInstrumentedTest {
         val inserts = mutableListOf<Triple<String, String, Long>>()
         override fun observeAll(): Flow<List<Video>> = emptyFlow()
         override fun observeById(id: Long): Flow<Video?> = emptyFlow()
+        override suspend fun allUris(): List<String> = inserts.map { it.first }
         override suspend fun insert(uri: String, displayName: String, createdAt: Long, thumbnailUri: String?, width: Int?, height: Int?) {
             inserts += Triple(uri, displayName, createdAt)
         }

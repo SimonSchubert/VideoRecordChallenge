@@ -13,6 +13,7 @@ import kotlinx.coroutines.withContext
 interface VideoRepository {
     fun observeAll(): Flow<List<Video>>
     fun observeById(id: Long): Flow<Video?>
+    suspend fun allUris(): List<String>
     suspend fun insert(uri: String, displayName: String, createdAt: Long, thumbnailUri: String?, width: Int?, height: Int?)
     suspend fun setUploadStatus(id: Long, status: UploadStatus)
     suspend fun setUploadProgress(id: Long, progress: Int)
@@ -28,6 +29,10 @@ class DefaultVideoRepository(private val db: VideoDatabase) : VideoRepository {
     override fun observeAll(): Flow<List<Video>> = db.videoQueries.selectAll().asFlow().mapToList(Dispatchers.IO)
 
     override fun observeById(id: Long): Flow<Video?> = db.videoQueries.selectById(id).asFlow().mapToOneOrNull(Dispatchers.IO)
+
+    override suspend fun allUris(): List<String> = withContext(Dispatchers.IO) {
+        db.videoQueries.selectAllUris().executeAsList()
+    }
 
     override suspend fun insert(uri: String, displayName: String, createdAt: Long, thumbnailUri: String?, width: Int?, height: Int?) {
         withContext(Dispatchers.IO) {

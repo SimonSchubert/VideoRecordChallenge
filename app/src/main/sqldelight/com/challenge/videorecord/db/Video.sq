@@ -22,6 +22,9 @@ SELECT *
 FROM Video
 WHERE id = ?;
 
+selectAllUris:
+SELECT uri FROM Video;
+
 insert:
 INSERT INTO Video(uri, displayName, createdAt, thumbnailUri, width, height)
 VALUES (?, ?, ?, ?, ?, ?);

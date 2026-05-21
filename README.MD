@@ -23,13 +23,14 @@ The upload is in-process, no bytes survive a kill and nothing to resume. `FAILED
 
 ## Time spent
 
-≈ 14 hours.
+≈ 15 hours.
 
 ## For production
 
 - More comprehensive camera implementation 
 - Foreground service for uploads
 - Increase test coverage
+- Disk space utils/implementations
 
 ## Testing
 

@@ -15,6 +15,7 @@ import androidx.lifecycle.viewModelScope
 import com.challenge.videorecord.data.MediaStorage
 import com.challenge.videorecord.data.ThumbnailExtractor
 import com.challenge.videorecord.data.VideoRepository
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -39,6 +40,7 @@ class RecordViewModel(
     private val repo: VideoRepository,
     private val thumbnails: ThumbnailExtractor,
     private val storage: MediaStorage,
+    private val appScope: CoroutineScope,
 ) : ViewModel() {
     private val _state = MutableStateFlow<RecordState>(RecordState.Idle)
     val state: StateFlow<RecordState> = _state.asStateFlow()
@@ -49,7 +51,7 @@ class RecordViewModel(
 
     fun startRecording(
         context: Context,
-        videoCapture: VideoCapture<Recorder>?,
+        videoCapture: VideoCapture<Recorder>,
     ) {
         _state.value = RecordState.Loading
         discardOnFinalize = false
@@ -58,9 +60,9 @@ class RecordViewModel(
         val opts = MediaStoreOutputOptions.Builder(context.contentResolver, MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
             .setContentValues(ContentValues().apply { put(MediaStore.Video.Media.DISPLAY_NAME, displayName) })
             .build()
-        currentRecording = videoCapture?.output
-            ?.prepareRecording(context, opts)
-            ?.start(ContextCompat.getMainExecutor(context)) { event ->
+        currentRecording = videoCapture.output
+            .prepareRecording(context, opts)
+            .start(ContextCompat.getMainExecutor(context)) { event ->
                 when (event) {
                     is VideoRecordEvent.Start -> {
                         _state.value = RecordState.Recording
@@ -76,7 +78,7 @@ class RecordViewModel(
                             _state.value = RecordState.Idle
                         } else if (discarded) {
                             val uri = event.outputResults.outputUri.toString()
-                            viewModelScope.launch(Dispatchers.IO) { storage.delete(uri) }
+                            appScope.launch(Dispatchers.IO) { storage.delete(uri) }
                             _state.value = RecordState.Idle
                         } else {
                             currentRecordingMetaData = CurrentRecordingMeta(
@@ -117,7 +119,7 @@ class RecordViewModel(
         }
         currentRecordingMetaData?.let { meta ->
             currentRecordingMetaData = null
-            viewModelScope.launch(Dispatchers.IO) { storage.delete(meta.uri) }
+            appScope.launch(Dispatchers.IO) { storage.delete(meta.uri) }
         }
         _state.value = RecordState.Idle
     }

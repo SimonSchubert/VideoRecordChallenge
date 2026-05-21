@@ -12,12 +12,15 @@ import com.challenge.videorecord.db.VideoDatabase
 import com.challenge.videorecord.ui.screen.record.RecordViewModel
 import com.challenge.videorecord.ui.screen.videodetail.VideoDetailViewModel
 import com.challenge.videorecord.ui.screen.videolist.VideoListViewModel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModel
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
 val appModule = module {
+    single<CoroutineScope> { CoroutineScope(SupervisorJob()) }
     single<ThumbnailExtractor> { AndroidThumbnailExtractor(androidContext()) }
     single<MediaStorage> { AndroidMediaStorage(androidContext()) }
     single<VideoRepository> {
