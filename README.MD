@@ -23,7 +23,7 @@ The upload is in-process, no bytes survive a kill and nothing to resume. `FAILED
 
 ## Time spent
 
-≈ 12 hours.
+≈ 14 hours.
 
 ## For production
 
@@ -31,8 +31,22 @@ The upload is in-process, no bytes survive a kill and nothing to resume. `FAILED
 - Foreground service for uploads
 - Increase test coverage
 
+## Testing
+
+Tested with:
+- emulator sdk 31, 36, 37, 29(hit limitation: "Codec2 on the API 29 emulator image is notoriously unstable for video recording")
+- physical Pixel9a sdk 36
+
+Instrumented tests: 
+1. connect device
+2. run `./gradlew :app:connectedDebugAndroidTest`
+
 ## Extras
 
-Unit tests: `./gradlew :app:testDebugUnitTest`
-
 Spotless: `./gradlew spotlessApply`
+
+Compose Stability Analyzer: 
+```
+./gradlew :app:stabilityDump
+./gradlew :app:stabilityCheck
+```

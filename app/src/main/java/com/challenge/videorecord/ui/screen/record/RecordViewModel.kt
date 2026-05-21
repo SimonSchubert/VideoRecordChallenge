@@ -1,11 +1,21 @@
 package com.challenge.videorecord.ui.screen.record
 
+import android.content.ContentValues
+import android.content.Context
+import android.provider.MediaStore
+import androidx.camera.video.MediaStoreOutputOptions
+import androidx.camera.video.Recorder
+import androidx.camera.video.Recording
+import androidx.camera.video.VideoCapture
+import androidx.camera.video.VideoRecordEvent
 import androidx.compose.runtime.Immutable
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.challenge.videorecord.data.MediaStorage
 import com.challenge.videorecord.data.ThumbnailExtractor
 import com.challenge.videorecord.data.VideoRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,9 +25,15 @@ import kotlinx.coroutines.launch
 sealed interface RecordState {
     data object Idle : RecordState
     data object Recording : RecordState
-    data object Process : RecordState
-    data class PendingDecision(val uri: String, val displayName: String, val createdAt: Long) : RecordState
+    data object Loading : RecordState
+    data object PendingDecision : RecordState
 }
+
+data class CurrentRecordingMeta(
+    val uri: String,
+    val displayName: String,
+    val finishedAt: Long,
+)
 
 class RecordViewModel(
     private val repo: VideoRepository,
@@ -27,62 +43,86 @@ class RecordViewModel(
     private val _state = MutableStateFlow<RecordState>(RecordState.Idle)
     val state: StateFlow<RecordState> = _state.asStateFlow()
 
-    private var stopActiveRecording: (() -> Unit)? = null
+    private var currentRecording: Recording? = null
+    private var currentRecordingMetaData: CurrentRecordingMeta? = null
     private var discardOnFinalize: Boolean = false
 
-    fun onRecordingStarted(stop: () -> Unit) {
-        stopActiveRecording = stop
+    fun startRecording(
+        context: Context,
+        videoCapture: VideoCapture<Recorder>?,
+    ) {
+        _state.value = RecordState.Loading
         discardOnFinalize = false
-        _state.value = RecordState.Recording
+
+        val displayName = "VID_${System.currentTimeMillis()}.mp4"
+        val opts = MediaStoreOutputOptions.Builder(context.contentResolver, MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
+            .setContentValues(ContentValues().apply { put(MediaStore.Video.Media.DISPLAY_NAME, displayName) })
+            .build()
+        currentRecording = videoCapture?.output
+            ?.prepareRecording(context, opts)
+            ?.start(ContextCompat.getMainExecutor(context)) { event ->
+                when (event) {
+                    is VideoRecordEvent.Start -> {
+                        _state.value = RecordState.Recording
+                    }
+
+                    is VideoRecordEvent.Finalize -> {
+                        currentRecording = null
+                        val discarded = discardOnFinalize
+                        discardOnFinalize = false
+
+                        if (event.hasError()) {
+                            // could show error state
+                            _state.value = RecordState.Idle
+                        } else if (discarded) {
+                            val uri = event.outputResults.outputUri.toString()
+                            viewModelScope.launch(Dispatchers.IO) { storage.delete(uri) }
+                            _state.value = RecordState.Idle
+                        } else {
+                            currentRecordingMetaData = CurrentRecordingMeta(
+                                uri = event.outputResults.outputUri.toString(),
+                                displayName = displayName,
+                                finishedAt = System.currentTimeMillis(),
+                            )
+                            _state.value = RecordState.PendingDecision
+                        }
+                    }
+                }
+            }
     }
 
-    fun onStopRequested() {
-        stopActiveRecording?.invoke()
-        _state.value = RecordState.Process
+    fun stopRecording() {
+        currentRecording?.stop()
     }
 
-    fun onRecordingError() {
-        stopActiveRecording = null
-        discardOnFinalize = false
-        _state.value = RecordState.Idle
-    }
+    fun saveRecording() {
+        val metaData = currentRecordingMetaData ?: return // edge case and show error?
 
-    fun onRecordingFinalized(uri: String, displayName: String, createdAt: Long) {
-        stopActiveRecording = null
-        if (discardOnFinalize) {
-            discardOnFinalize = false
-            _state.value = RecordState.Idle
-            viewModelScope.launch { storage.delete(uri) }
-        } else {
-            _state.value = RecordState.PendingDecision(uri, displayName, createdAt)
+        _state.value = RecordState.Loading
+        viewModelScope.launch(Dispatchers.IO) {
+            val meta = thumbnails.extract(metaData.uri, metaData.displayName)
+            repo.insert(metaData.uri, metaData.displayName, metaData.finishedAt, meta.thumbnailUri, meta.width, meta.height)
+            currentRecordingMetaData = null
+            _state.value = RecordState.Idle // could show success state/redirect to video detail
         }
     }
 
-    fun abortRecording() {
-        if (_state.value !is RecordState.Recording) return
-        discardOnFinalize = true
-        _state.value = RecordState.Process
-        stopActiveRecording?.invoke()
-    }
-
-    fun save() {
-        val pending = _state.value as? RecordState.PendingDecision ?: return
-        _state.value = RecordState.Process
-        viewModelScope.launch {
-            val meta = thumbnails.extract(pending.uri, pending.displayName)
-            repo.insert(pending.uri, pending.displayName, pending.createdAt, meta.thumbnailUri, meta.width, meta.height)
-            _state.value = RecordState.Idle
+    fun discardRecording() {
+        val recording = currentRecording
+        if (recording != null) {
+            discardOnFinalize = true
+            recording.stop()
+            // finalize callback deletes file
+            return
         }
-    }
-
-    fun discard() {
-        val pending = _state.value as? RecordState.PendingDecision ?: return
+        currentRecordingMetaData?.let { meta ->
+            currentRecordingMetaData = null
+            viewModelScope.launch(Dispatchers.IO) { storage.delete(meta.uri) }
+        }
         _state.value = RecordState.Idle
-        viewModelScope.launch { storage.delete(pending.uri) }
     }
 
     override fun onCleared() {
-        stopActiveRecording?.invoke()
-        stopActiveRecording = null
+        discardRecording()
     }
 }

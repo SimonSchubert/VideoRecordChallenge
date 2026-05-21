@@ -1,15 +1,7 @@
 package com.challenge.videorecord.ui.screen.record
 
 import android.Manifest
-import android.app.Activity
-import android.content.ContentValues
 import android.content.Context
-import android.content.ContextWrapper
-import android.content.Intent
-import android.content.pm.PackageManager
-import android.net.Uri
-import android.provider.MediaStore
-import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -19,13 +11,11 @@ import androidx.camera.core.Preview
 import androidx.camera.core.SurfaceRequest
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.lifecycle.awaitInstance
-import androidx.camera.video.MediaStoreOutputOptions
+import androidx.camera.video.FallbackStrategy
 import androidx.camera.video.Quality
 import androidx.camera.video.QualitySelector
 import androidx.camera.video.Recorder
-import androidx.camera.video.Recording
 import androidx.camera.video.VideoCapture
-import androidx.camera.video.VideoRecordEvent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -48,7 +38,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -59,6 +48,7 @@ import com.challenge.videorecord.openAppSettings
 import com.challenge.videorecord.ui.components.TopBar
 import com.challenge.videorecord.ui.theme.VideoUploadTheme
 import org.koin.compose.viewmodel.koinViewModel
+import kotlin.Unit
 
 @Composable
 fun RecordScreen(
@@ -69,13 +59,10 @@ fun RecordScreen(
 
     RecordContent(
         state = state,
-        onRecordingStarted = viewModel::onRecordingStarted,
-        onStopRequested = viewModel::onStopRequested,
-        onRecordingFinalized = viewModel::onRecordingFinalized,
-        onRecordingError = viewModel::onRecordingError,
-        onAbortRecording = viewModel::abortRecording,
-        onSave = viewModel::save,
-        onDiscard = viewModel::discard,
+        onStartRecording = viewModel::startRecording,
+        onStopRecording = viewModel::stopRecording,
+        onDiscardRecording = viewModel::discardRecording,
+        onSaveRecording = viewModel::saveRecording,
         onNavigateBack = onNavigateBack,
     )
 }
@@ -85,13 +72,10 @@ private val CAMERA_PERMISSIONS = arrayOf(Manifest.permission.CAMERA, Manifest.pe
 @Composable
 private fun RecordContent(
     state: RecordState,
-    onRecordingStarted: (stop: () -> Unit) -> Unit,
-    onStopRequested: () -> Unit,
-    onRecordingFinalized: (uri: String, displayName: String, createdAt: Long) -> Unit,
-    onRecordingError: () -> Unit,
-    onAbortRecording: () -> Unit,
-    onSave: () -> Unit,
-    onDiscard: () -> Unit,
+    onStartRecording: (Context, VideoCapture<Recorder>?) -> Unit,
+    onStopRecording: () -> Unit,
+    onDiscardRecording: () -> Unit,
+    onSaveRecording: () -> Unit,
     onNavigateBack: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -122,13 +106,10 @@ private fun RecordContent(
     if (hasPermissions) {
         CameraRecorder(
             state = state,
-            onRecordingStarted = onRecordingStarted,
-            onStopRequested = onStopRequested,
-            onRecordingFinalized = onRecordingFinalized,
-            onRecordingError = onRecordingError,
-            onAbortRecording = onAbortRecording,
-            onSave = onSave,
-            onDiscard = onDiscard,
+            onStartRecording = onStartRecording,
+            onStopRecording = onStopRecording,
+            onDiscardRecording = onDiscardRecording,
+            onSaveRecording = onSaveRecording,
             onNavigateBack = onNavigateBack,
         )
     } else {
@@ -175,13 +156,10 @@ private fun PermissionGate(
 @Composable
 private fun CameraRecorder(
     state: RecordState,
-    onRecordingStarted: (stop: () -> Unit) -> Unit,
-    onStopRequested: () -> Unit,
-    onRecordingFinalized: (uri: String, displayName: String, createdAt: Long) -> Unit,
-    onRecordingError: () -> Unit,
-    onAbortRecording: () -> Unit,
-    onSave: () -> Unit,
-    onDiscard: () -> Unit,
+    onStartRecording: (Context, VideoCapture<Recorder>?) -> Unit,
+    onStopRecording: () -> Unit,
+    onDiscardRecording: () -> Unit,
+    onSaveRecording: () -> Unit,
     onNavigateBack: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -193,8 +171,13 @@ private fun CameraRecorder(
         val provider = ProcessCameraProvider.awaitInstance(context)
         val preview =
             Preview.Builder().build().also { it.setSurfaceProvider { surfaceRequest = it } }
+        // cap quality at 1080p, accept any lower
+        val qualitySelector = QualitySelector.fromOrderedList(
+            listOf(Quality.FHD, Quality.HD, Quality.SD),
+            FallbackStrategy.lowerQualityThan(Quality.SD),
+        )
         val recorder =
-            Recorder.Builder().setQualitySelector(QualitySelector.from(Quality.HIGHEST)).build()
+            Recorder.Builder().setQualitySelector(qualitySelector).build()
         videoCapture = VideoCapture.withOutput(recorder)
         provider.bindToLifecycle(
             lifecycleOwner,
@@ -206,7 +189,8 @@ private fun CameraRecorder(
 
     // stop the camera and discard
     BackHandler(enabled = state is RecordState.Recording) {
-        onAbortRecording()
+        // could trigger user confirmation
+        onDiscardRecording()
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -220,22 +204,12 @@ private fun CameraRecorder(
         CameraActions(
             modifier = Modifier.align(Alignment.BottomCenter).systemBarsPadding(),
             state = state,
-            onRecord = {
-                val recording = startRecording(
-                    context = context,
-                    videoCapture = videoCapture,
-                    onFinalized = onRecordingFinalized,
-                    onError = onRecordingError,
-                )
-                if (recording != null) {
-                    onRecordingStarted { recording.stop() }
-                } else {
-                    onRecordingError()
-                }
+            onStart = {
+                onStartRecording(context, videoCapture)
             },
-            onStop = onStopRequested,
-            onSave = onSave,
-            onDiscard = onDiscard,
+            onStop = onStopRecording,
+            onSave = onSaveRecording,
+            onDiscard = onDiscardRecording,
         )
     }
 }
@@ -244,7 +218,7 @@ private fun CameraRecorder(
 private fun CameraActions(
     modifier: Modifier = Modifier,
     state: RecordState,
-    onRecord: () -> Unit,
+    onStart: () -> Unit,
     onStop: () -> Unit,
     onSave: () -> Unit,
     onDiscard: () -> Unit,
@@ -254,7 +228,7 @@ private fun CameraActions(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         when (state) {
-            is RecordState.Idle -> Button(onClick = onRecord) { Text("Record") }
+            is RecordState.Idle -> Button(onClick = onStart) { Text("Record") }
 
             is RecordState.Recording -> Button(onClick = onStop) { Text("Stop") }
 
@@ -263,32 +237,9 @@ private fun CameraActions(
                 Button(onClick = onDiscard) { Text("Discard") }
             }
 
-            RecordState.Process -> CircularProgressIndicator()
+            RecordState.Loading -> CircularProgressIndicator()
         }
     }
-}
-
-private fun startRecording(
-    context: Context,
-    videoCapture: VideoCapture<Recorder>?,
-    onFinalized: (uri: String, displayName: String, createdAt: Long) -> Unit,
-    onError: () -> Unit,
-): Recording? {
-    val displayName = "VID_${System.currentTimeMillis()}.mp4"
-    val opts = MediaStoreOutputOptions.Builder(context.contentResolver, MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
-        .setContentValues(ContentValues().apply { put(MediaStore.Video.Media.DISPLAY_NAME, displayName) })
-        .build()
-    return videoCapture?.output
-        ?.prepareRecording(context, opts)
-        ?.start(ContextCompat.getMainExecutor(context)) { event ->
-            if (event is VideoRecordEvent.Finalize) {
-                if (event.hasError()) {
-                    onError()
-                } else {
-                    onFinalized(event.outputResults.outputUri.toString(), displayName, System.currentTimeMillis())
-                }
-            }
-        }
 }
 
 @androidx.compose.ui.tooling.preview.Preview
@@ -297,13 +248,10 @@ fun RecordPreview(@PreviewParameter(RecordPreviewProvider::class) state: RecordS
     VideoUploadTheme {
         RecordContent(
             state = state,
-            onRecordingStarted = {},
-            onStopRequested = {},
-            onRecordingFinalized = { _, _, _ -> },
-            onRecordingError = {},
-            onAbortRecording = {},
-            onSave = {},
-            onDiscard = {},
+            onStartRecording = { _, _ -> },
+            onStopRecording = {},
+            onDiscardRecording = {},
+            onSaveRecording = {},
             onNavigateBack = {},
         )
     }
