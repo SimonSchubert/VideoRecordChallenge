@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.challenge.videorecord.ui.VideoUi
 import com.challenge.videorecord.ui.components.ThumbnailImage
+import com.challenge.videorecord.ui.components.rememberDebouncedClick
 import com.challenge.videorecord.ui.theme.VideoUploadTheme
 import com.challenge.videorecord.ui.tint
 import kotlinx.collections.immutable.ImmutableList
@@ -74,7 +75,7 @@ private fun VideoListContent(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .safeContentPadding(),
-            onClick = onRecordVideo,
+            onClick = rememberDebouncedClick(onClick = onRecordVideo),
             containerColor = MaterialTheme.colorScheme.secondaryContainer,
             contentColor = MaterialTheme.colorScheme.secondary,
         ) {
@@ -88,12 +89,11 @@ private fun VideoRow(
     video: VideoUi,
     onSelect: (Long) -> Unit,
 ) {
+    val onRowClick = rememberDebouncedClick { onSelect(video.id) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable {
-                onSelect(video.id)
-            }
+            .clickable(onClick = onRowClick)
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp),

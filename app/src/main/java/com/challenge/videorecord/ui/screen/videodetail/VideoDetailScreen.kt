@@ -59,6 +59,7 @@ import com.challenge.videorecord.ui.UploadStatus
 import com.challenge.videorecord.ui.VideoUi
 import com.challenge.videorecord.ui.components.ThumbnailImage
 import com.challenge.videorecord.ui.components.TopBar
+import com.challenge.videorecord.ui.components.rememberDebouncedClick
 import com.challenge.videorecord.ui.theme.VideoUploadTheme
 import com.challenge.videorecord.ui.tint
 import org.koin.compose.viewmodel.koinViewModel
@@ -166,7 +167,7 @@ private fun Metadata(
                 }
                 when (video.uploadStatus) {
                     UploadStatus.RECORDED -> {
-                        Button(onClick = onUpload) {
+                        Button(onClick = rememberDebouncedClick(onClick = onUpload)) {
                             Text(text = "Upload")
                         }
                     }
@@ -176,7 +177,7 @@ private fun Metadata(
                             progress = { video.uploadProgress / 100f },
                             modifier = Modifier.fillMaxWidth(),
                         )
-                        Button(onClick = onCancel) {
+                        Button(onClick = rememberDebouncedClick(onClick = onCancel)) {
                             Text(text = "Cancel")
                         }
                     }
@@ -184,7 +185,7 @@ private fun Metadata(
                     UploadStatus.UPLOADED -> {}
 
                     UploadStatus.FAILED -> {
-                        Button(onClick = onUpload) {
+                        Button(onClick = rememberDebouncedClick(onClick = onUpload)) {
                             Text(text = "Retry")
                         }
                     }
@@ -240,11 +241,12 @@ private fun VideoPlayer(
             )
         }
 
+        val onPlayPauseClick = rememberDebouncedClick {
+            started = true
+            playPauseState.onClick()
+        }
         IconButton(
-            onClick = {
-                started = true
-                playPauseState.onClick()
-            },
+            onClick = onPlayPauseClick,
             enabled = playPauseState.isEnabled,
             modifier = Modifier
                 .align(Alignment.Center)

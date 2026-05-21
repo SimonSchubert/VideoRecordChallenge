@@ -28,7 +28,7 @@ fun TopBar(
         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        IconButton(onClick = { onNavigateBack() }) {
+        IconButton(onClick = rememberDebouncedClick(onClick = onNavigateBack)) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
         }
         Text(

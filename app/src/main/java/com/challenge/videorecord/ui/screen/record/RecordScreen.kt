@@ -49,6 +49,7 @@ import com.challenge.videorecord.findActivity
 import com.challenge.videorecord.hasPermission
 import com.challenge.videorecord.openAppSettings
 import com.challenge.videorecord.ui.components.TopBar
+import com.challenge.videorecord.ui.components.rememberDebouncedClick
 import com.challenge.videorecord.ui.theme.VideoUploadTheme
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.Unit
@@ -84,7 +85,7 @@ private val CAMERA_PERMISSIONS = arrayOf(Manifest.permission.CAMERA, Manifest.pe
 @Composable
 private fun RecordContent(
     state: RecordState,
-    onStartRecording: (Context, VideoCapture<Recorder>?) -> Unit,
+    onStartRecording: (Context, VideoCapture<Recorder>) -> Unit,
     onStopRecording: () -> Unit,
     onDiscardRecording: () -> Unit,
     onSaveRecording: () -> Unit,
@@ -157,9 +158,9 @@ private fun PermissionGate(
                 )
             Text("Camera and microphone permissions are required.")
             if (canRequest) {
-                Button(onClick = onRequestPermission) { Text("Grant permission") }
+                Button(onClick = rememberDebouncedClick(onClick = onRequestPermission)) { Text("Grant permission") }
             } else {
-                Button(onClick = onOpenSettings) { Text("Open settings") }
+                Button(onClick = rememberDebouncedClick(onClick = onOpenSettings)) { Text("Open settings") }
             }
         }
     }
@@ -168,7 +169,7 @@ private fun PermissionGate(
 @Composable
 private fun CameraRecorder(
     state: RecordState,
-    onStartRecording: (Context, VideoCapture<Recorder>?) -> Unit,
+    onStartRecording: (Context, VideoCapture<Recorder>) -> Unit,
     onStopRecording: () -> Unit,
     onDiscardRecording: () -> Unit,
     onSaveRecording: () -> Unit,
@@ -216,9 +217,8 @@ private fun CameraRecorder(
         CameraActions(
             modifier = Modifier.align(Alignment.BottomCenter).systemBarsPadding(),
             state = state,
-            onStart = {
-                onStartRecording(context, videoCapture)
-            },
+            videoCapture = videoCapture,
+            onStart = { capture -> onStartRecording(context, capture) },
             onStop = onStopRecording,
             onSave = onSaveRecording,
             onDiscard = onDiscardRecording,
@@ -230,7 +230,8 @@ private fun CameraRecorder(
 private fun CameraActions(
     modifier: Modifier = Modifier,
     state: RecordState,
-    onStart: () -> Unit,
+    videoCapture: VideoCapture<Recorder>?,
+    onStart: (VideoCapture<Recorder>) -> Unit,
     onStop: () -> Unit,
     onSave: () -> Unit,
     onDiscard: () -> Unit,
@@ -240,13 +241,20 @@ private fun CameraActions(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         when (state) {
-            is RecordState.Idle -> Button(onClick = onStart) { Text("Record") }
+            is RecordState.Idle -> {
+                if (videoCapture != null) {
+                    val onRecordClick = rememberDebouncedClick { onStart(videoCapture) }
+                    Button(onClick = onRecordClick) { Text("Record") }
+                } else {
+                    CircularProgressIndicator()
+                }
+            }
 
-            is RecordState.Recording -> Button(onClick = onStop) { Text("Stop") }
+            is RecordState.Recording -> Button(onClick = rememberDebouncedClick(onClick = onStop)) { Text("Stop") }
 
             is RecordState.PendingDecision -> {
-                Button(onClick = onSave) { Text("Save") }
-                Button(onClick = onDiscard) { Text("Discard") }
+                Button(onClick = rememberDebouncedClick(onClick = onSave)) { Text("Save") }
+                Button(onClick = rememberDebouncedClick(onClick = onDiscard)) { Text("Discard") }
             }
 
             RecordState.Loading -> CircularProgressIndicator()
