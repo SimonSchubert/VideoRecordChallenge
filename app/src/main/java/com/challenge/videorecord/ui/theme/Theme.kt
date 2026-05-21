@@ -54,13 +54,13 @@ fun VideoUploadTheme(
         else -> LightColorScheme
     }
 
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = colorScheme.background,
+    MaterialTheme(
+        colorScheme = colorScheme,
+        typography = Typography,
     ) {
-        MaterialTheme(
-            colorScheme = colorScheme,
-            typography = Typography,
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = colorScheme.background,
             content = content,
         )
     }
